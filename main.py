@@ -9,32 +9,39 @@ OUTPUT_FOLDER = 'qr_codes/'
 DUEL_BACKGROUND_IMAGE_PATH = 'duel_code.png'
 QR_SIZE = (300, 300)
 BACKGROUND_SIZE = (1200, 1800)
-QR_CODE_Y_POSITION = 600  # Adjust if needed for single background layout
+QR_CODE_Y_POSITION = 350
 FONT_SIZE = 40
 TEXT_PADDING = 20
+SPACE_BETWEEN_QR_CODES = 100
 
 
-def create_qr_code_image(name, info):
-  """Creates a QR code image with name label below it."""
+def create_qr_code_image(name, uuid):
+  dynamic_url = f'https://www.sieclipse.com/download?uuid={uuid}'
   qr = qrcode.QRCode(
       version=1,
       error_correction=qrcode.constants.ERROR_CORRECT_L,
       box_size=10,
       border=4,
   )
-  qr.add_data(info)
+  qr.add_data(dynamic_url)
   qr.make(fit=True)
   img = qr.make_image(fill_color="white", back_color="black").convert('RGBA')
   img = img.resize(QR_SIZE, Image.Resampling.LANCZOS)
 
-  # Add name label below the code
   draw = ImageDraw.Draw(img)
-  font = ImageFont.truetype(
-      "arial.ttf",
-      FONT_SIZE) if os.path.exists("arial.ttf") else ImageFont.load_default()
+  if os.path.exists("arial.ttf"):
+    font = ImageFont.truetype("arial.ttf", FONT_SIZE)
+  else:
+    font = ImageFont.load_default()
+
+  # Using textbbox to accommodate both TrueType and default fonts
+  text_width, text_height = font.getsize(name) if hasattr(
+      font, 'getsize') else (draw.textbbox(
+          (0, 0), name, font=font)[2], draw.textbbox(
+              (0, 0), name, font=font)[3])
+  text_x_position = (QR_SIZE[0] - text_width) / 2
   text_y_position = QR_SIZE[1] + TEXT_PADDING
-  text_position = (0, text_y_position)
-  draw.text(text_position, name, fill="black", font=font)
+  draw.text((text_x_position, text_y_position), name, fill="black", font=font)
 
   return img
 
@@ -47,38 +54,29 @@ def main():
     items = list(csv_reader)
 
   for i in range(0, len(items), 2):
-    # Handle last item if an odd number in the list
     if i == len(items) - 1:
-      image = create_qr_code_image(items[i]['Name'], items[i]['Info'])
-      output_filename = f'{OUTPUT_FOLDER}{items[i]["Name"]}_with_background.png'
-      image.save(output_filename)
+      # For an odd number of items, handle the last item separately if necessary
       continue
 
-    # Process items in pairs for duel background
     duel_bg = Image.open(DUEL_BACKGROUND_IMAGE_PATH).convert('RGBA')
+    qr_code1 = create_qr_code_image(items[i]['Company Name'], items[i]['UUID'])
+    qr_code2 = create_qr_code_image(items[i + 1]['Company Name'],
+                                    items[i + 1]['UUID'])
 
-    for index, item in enumerate([items[i], items[i + 1]]):
-      qr_code = create_qr_code_image(item['Name'], item['Info'])
+    total_width = QR_SIZE[0] * 2 + SPACE_BETWEEN_QR_CODES
+    # Adjustments
+    x1_adjustment = 460
+    x2_adjustment = 1660
 
-      # Adjust the y-position for each QR code
-      y_position_adjustment = -150  # Move up by 100 pixels
+    start_x1 = (BACKGROUND_SIZE[0] - total_width) // 2 + x1_adjustment
+    start_x2 = start_x1 + QR_SIZE[
+        0] + SPACE_BETWEEN_QR_CODES + x2_adjustment - x1_adjustment
+    y_position = QR_CODE_Y_POSITION
 
-      # Determine the position for each QR code based on its index
-      # If the index is even, place the QR code on the left side
-      # If the index is odd, place the QR code on the right side
-      if index % 2 == 0:  # Left side
-        x_position = 715  # adjust as needed
-      else:  # Right side
-        x_position = 2325  # adjust as needed
+    duel_bg.paste(qr_code1, (start_x1, y_position), qr_code1)
+    duel_bg.paste(qr_code2, (start_x2, y_position), qr_code2)
 
-      # Calculate the final y-position by adding the adjustment
-      final_y_position = 500 + y_position_adjustment
-
-      # Paste the QR code onto the duel background at the calculated position
-      # The y-position is adjusted, but you can further adjust it as needed
-      duel_bg.paste(qr_code, (x_position, final_y_position), qr_code)
-
-    output_filename = f'{OUTPUT_FOLDER}{items[i]["Name"]}_{items[i + 1]["Name"]}_combined.png'
+    output_filename = f'{OUTPUT_FOLDER}{items[i]["Company Name"]}_{items[i + 1]["Company Name"]}_combined.png'
     duel_bg.save(output_filename)
 
 
