@@ -3,45 +3,43 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-# Constants - Adjust as needed
 CSV_FILE = 'data.csv'
 OUTPUT_FOLDER = 'qr_codes/'
 DUEL_BACKGROUND_IMAGE_PATH = 'duel_code.png'
 QR_SIZE = (300, 300)
 BACKGROUND_SIZE = (1200, 1800)
 QR_CODE_Y_POSITION = 350
-FONT_SIZE = 40
+FONT_SIZE = 30
 TEXT_PADDING = 20
 SPACE_BETWEEN_QR_CODES = 100
 
 
 def create_qr_code_image(name, uuid):
-  dynamic_url = f'https://www.sieclipse.com/download?uuid={uuid}'
   qr = qrcode.QRCode(
       version=1,
       error_correction=qrcode.constants.ERROR_CORRECT_L,
       box_size=10,
       border=4,
   )
-  qr.add_data(dynamic_url)
+  qr.add_data(uuid)  # Directly adding UUID here
   qr.make(fit=True)
-  img = qr.make_image(fill_color="white", back_color="black").convert('RGBA')
+  img = qr.make_image(fill_color="white", back_color="#1D120B").convert('RGBA')
   img = img.resize(QR_SIZE, Image.Resampling.LANCZOS)
 
   draw = ImageDraw.Draw(img)
-  if os.path.exists("arial.ttf"):
-    font = ImageFont.truetype("arial.ttf", FONT_SIZE)
+  font_path = "arial.ttf"  # Or the full path if it's not in the same directory
+  if os.path.exists(font_path):
+    print("Found the font file.")
+    font = ImageFont.truetype(font_path, FONT_SIZE)
   else:
+    print("Font file not found, using default font.")
     font = ImageFont.load_default()
 
-  # Using textbbox to accommodate both TrueType and default fonts
-  text_width, text_height = font.getsize(name) if hasattr(
-      font, 'getsize') else (draw.textbbox(
-          (0, 0), name, font=font)[2], draw.textbbox(
-              (0, 0), name, font=font)[3])
-  text_x_position = (QR_SIZE[0] - text_width) / 2
-  text_y_position = QR_SIZE[1] + TEXT_PADDING
-  draw.text((text_x_position, text_y_position), name, fill="black", font=font)
+  # For debugging: Draw the company name at a fixed position
+  text_x_position = 10  # Fixed X position for debugging
+  text_y_position = 275  # Fixed Y position for debugging
+  draw.text((text_x_position, text_y_position), name, fill="white",
+            font=font)  # Drawing text in white at the top-left corner
 
   return img
 
